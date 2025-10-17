@@ -14,3 +14,4 @@ __pycache__/
 
 # OS files
 data/processed_urls.json
+malicious_phish.csv
