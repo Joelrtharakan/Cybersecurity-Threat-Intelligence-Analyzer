@@ -1,5 +1,4 @@
 # Generated files
-data/processed_urls.json
 report/images/*.png
 
 # Virtual environment
@@ -14,4 +13,4 @@ __pycache__/
 *.pyo
 
 # OS files
-.DS_Store
+data/processed_urls.json
