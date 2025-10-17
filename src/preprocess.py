@@ -13,6 +13,7 @@ import tldextract
 from tqdm import tqdm
 import json
 import argparse
+import requests
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
 RAW_PATHS = [
@@ -70,6 +71,10 @@ def normalize_url(u):
         u = 'http://' + u
     return u
 
+def get_country(domain):
+    # For speed, skip API calls; return 'Unknown'
+    return 'Unknown'
+
 def parse_row(u, label):
     try:
         u_norm = normalize_url(u)
@@ -86,6 +91,8 @@ def parse_row(u, label):
         url_length = len(u_norm)
         num_subdomains = 0 if not subdomain else len(subdomain.split('.'))
         has_https = scheme == 'https'
+        country = get_country(domain)
+        threat_score = (url_length / 100) + (num_subdomains * 2) + (1 if tld in ['tk', 'xyz', 'info', 'top'] else 0)
         # normalize label
         label = (label or '').strip().lower()
         if label == '':
@@ -101,7 +108,9 @@ def parse_row(u, label):
             'scheme': scheme,
             'has_https': has_https,
             'url_length': url_length,
-            'num_subdomains': num_subdomains
+            'num_subdomains': num_subdomains,
+            'country': country,
+            'threat_score': threat_score
         }
     except Exception:
         return None
