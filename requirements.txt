@@ -1,0 +1,7 @@
+pandas
+pymongo
+tqdm
+tldextract
+python-dateutil
+matplotlib
+dnspython
