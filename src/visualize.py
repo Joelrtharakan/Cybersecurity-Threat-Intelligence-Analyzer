@@ -7,8 +7,10 @@ Saves charts to report/images/
 import os
 from pymongo import MongoClient
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
+import plotly.graph_objects as go
 
 MONGO_URI = "mongodb://localhost:27017/"
 DB_NAME = "cyber_intel"
@@ -90,12 +92,21 @@ def plot_threat_scores():
 def plot_country_map():
     # Get country data
     cur = db['country_counts'].find()
-    rows = [(d['_id'], d['count']) for d in cur if d['_id'] not in ['Unknown', None]]
+    rows = [(d['_id'], d.get('count', 0), d.get('country_name', '')) for d in cur]
     if not rows:
         print("No data in country_counts.")
         return
     
-    df = pd.DataFrame(rows, columns=['country', 'count'])
+    # Create DataFrame and filter out the "OTHER" category
+    df = pd.DataFrame(rows, columns=['country', 'count', 'country_name'])
+    df = df[df['country'] != 'OTHER']
+    
+    if df.empty:
+        print("No valid country data available.")
+        return
+    
+    # Normalize the counts for better visualization
+    df['count_normalized'] = np.log1p(df['count'])  # log transformation for better color distribution
     
     # Create a more detailed choropleth map
     fig = px.choropleth(
@@ -103,7 +114,14 @@ def plot_country_map():
         locations='country',
         locationmode='ISO-3',
         color='count',
-        color_continuous_scale='Viridis',
+        hover_name='country_name',
+        color_continuous_scale=[
+            [0, '#edf8fb'],      # Lightest shade
+            [0.2, '#b2e2e2'],
+            [0.4, '#66c2a4'],
+            [0.6, '#2ca25f'],
+            [0.8, '#006d2c'],    # Darkest shade
+        ],
         range_color=[df['count'].min(), df['count'].max()],
         title='Global Distribution of Malicious URLs',
         labels={'count': 'Number of Malicious URLs'},
@@ -113,33 +131,66 @@ def plot_country_map():
     fig.update_layout(
         title={
             'text': 'Global Distribution of Malicious URLs',
-            'y':0.9,
+            'y':0.95,
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top',
-            'font': {'size': 24}
+            'font': {'size': 24, 'color': '#2C3E50'}
         },
+        paper_bgcolor='rgba(255,255,255,0.8)',
+        plot_bgcolor='rgba(255,255,255,0.8)',
         geo=dict(
             showframe=True,
             showcoastlines=True,
             projection_type='equirectangular',
+            coastlinecolor='#95a5a6',
             showocean=True,
-            oceancolor='lightblue',
+            oceancolor='#edf8fb',
             showland=True,
-            landcolor='lightgrey',
+            landcolor='#ffffff',
             showcountries=True,
-            countrycolor='white',
+            countrycolor='#bdc3c7',
             countrywidth=0.5,
+            lonaxis=dict(
+                showgrid=True,
+                gridwidth=0.5,
+                gridcolor='#ecf0f1'
+            ),
+            lataxis=dict(
+                showgrid=True,
+                gridwidth=0.5,
+                gridcolor='#ecf0f1'
+            )
         ),
         width=1200,
         height=800,
-        margin={"r":0,"t":30,"l":0,"b":0}
+        margin={"r":60,"t":80,"l":60,"b":40},
+        coloraxis_colorbar=dict(
+            title='Number of<br>Malicious URLs',
+            thicknessmode="pixels",
+            thickness=20,
+            lenmode="pixels",
+            len=300,
+            yanchor="middle",
+            y=0.5,
+            xanchor="right",
+            x=0.98,
+            bgcolor='rgba(255,255,255,0.8)',
+            bordercolor='#2C3E50',
+            borderwidth=1,
+            titlefont=dict(size=14, color='#2C3E50'),
+            tickfont=dict(size=12, color='#2C3E50')
+        )
     )
     
-    # Add hover template
+    # Add hover template with more details
     fig.update_traces(
-        hovertemplate='<b>Country:</b> %{location}<br>' +
-                      '<b>Malicious URLs:</b> %{z:,.0f}<br><extra></extra>'
+        hovertemplate=(
+            '<b>%{customdata[0]}</b><br>' +
+            'Malicious URLs: %{z:,.0f}<br>' +
+            '<extra></extra>'
+        ),
+        customdata=df[['country_name']].values
     )
     
     out = os.path.join(OUT_DIR, 'country_map.html')
