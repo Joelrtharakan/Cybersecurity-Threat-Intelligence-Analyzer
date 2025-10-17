@@ -1,0 +1,17 @@
+# Generated files
+data/processed_urls.json
+report/images/*.png
+
+# Virtual environment
+venv/
+
+# MongoDB data (if any)
+*.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# OS files
+.DS_Store
